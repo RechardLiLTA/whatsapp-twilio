@@ -22,54 +22,58 @@ public class WhatsappController {
         this.whatsappService = whatsappService;
     }
 
+    // =============== 1) send alert ===============
     @PostMapping("/alerts/simple")
     public ResponseEntity<?> sendSimpleAlert(@RequestBody Map<String, Object> payload) {
         try {
-            // Extract message
+            // message
             String message = (String) payload.getOrDefault("message", "");
             if (message.isEmpty()) {
                 return ResponseEntity.badRequest().body(Map.of("error", "message is required"));
             }
 
-            // Detect MRT line from message
+            // detect line
+            String upper = message.toUpperCase();
             String line = "GENERAL";
-            if (message.toUpperCase().contains("NEL")) line = "NEL";
-            else if (message.toUpperCase().contains("NSL")) line = "NSL";
-            else if (message.toUpperCase().contains("EWL")) line = "EWL";
-            else if (message.toUpperCase().contains("CCL")) line = "CCL";
-            else if (message.toUpperCase().contains("DTL")) line = "DTL";
-            else if (message.toUpperCase().contains("TEL")) line = "TEL";
-            else if (message.toUpperCase().contains("BPLRT")) line = "BPLRT";
-            else if (message.toUpperCase().contains("SPLRT")) line = "SPLRT";
+            if (upper.contains("NEL")) line = "NEL";
+            else if (upper.contains("NSL")) line = "NSL";
+            else if (upper.contains("EWL")) line = "EWL";
+            else if (upper.contains("CCL")) line = "CCL";
+            else if (upper.contains("DTL")) line = "DTL";
+            else if (upper.contains("TEL")) line = "TEL";
+            else if (upper.contains("BPLRT")) line = "BPLRT";
+            else if (upper.contains("SPLRT")) line = "SPLRT";
 
-            //read tets flag
+            // test flag
             boolean test = false;
             Object testVal = payload.get("test");
-            if (testVal instanceof Boolean b) test = b;
+            if (testVal instanceof Boolean b) {
+                test = b;
+            }
 
-
-            // ✅ Use your service’s helper method
+            // choose recipients
             List<String> recipients;
             if (test) {
-                recipients = List.of("whatsapp:+6584685816");
-            }
-            else {
-                recipients = whatsappService.getRecipientsForLine(line);
+                // test mode: only send to you
+                recipients = List.of("whatsapp:+6584685816"); // your own test number
+            } else {
+                // REAL mode: pull from in-memory subscriptions
+                recipients = whatsappService.getSubscribersForLine(line);
             }
 
             if (recipients == null || recipients.isEmpty()) {
                 return ResponseEntity.status(404).body(Map.of(
-                        "error", "No recipients configured for line " + line
+                        "error", "No recipients/subscribers configured for line " + line
                 ));
             }
 
-            // Format message
+            // format
             String formatted = "🚇 " + line + " Service Update\n" + message;
 
-            // Send WhatsApp alert
+            // send
             whatsappService.sendAlert(formatted, recipients);
 
-            //log to console
+            // log
             log.info("[{}] SENT {} line={} recipients={} msg={}",
                     OffsetDateTime.now(),
                     (test ? "TEST" : "REAL"),
@@ -77,7 +81,7 @@ public class WhatsappController {
                     recipients,
                     message);
 
-            //add to in-memory audit
+            // audit
             whatsappService.addAuditEntry(
                     OffsetDateTime.now().toString(),
                     line,
@@ -86,7 +90,6 @@ public class WhatsappController {
                     test
             );
 
-            // Return result
             return ResponseEntity.ok(Map.of(
                     "status", "sent",
                     "line", line,
@@ -99,5 +102,47 @@ public class WhatsappController {
                     "reason", e.getMessage()
             ));
         }
+    }
+
+    // =============== 2) subscribe ===============
+    @PostMapping("/subscribe")
+    public ResponseEntity<?> subscribe(@RequestBody Map<String, Object> payload) {
+        String line = (String) payload.getOrDefault("line", "GENERAL");
+        String phone = (String) payload.get("phone");
+
+        if (phone == null || phone.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "phone is required"));
+        }
+
+        whatsappService.subscribe(line, phone);
+        return ResponseEntity.ok(Map.of(
+                "status", "subscribed",
+                "line", line.toUpperCase(),
+                "phone", phone
+        ));
+    }
+
+    // =============== 3) unsubscribe ===============
+    @PostMapping("/unsubscribe")
+    public ResponseEntity<?> unsubscribe(@RequestBody Map<String, Object> payload) {
+        String line = (String) payload.getOrDefault("line", "GENERAL");
+        String phone = (String) payload.get("phone");
+
+        if (phone == null || phone.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "phone is required"));
+        }
+
+        whatsappService.unsubscribe(line, phone);
+        return ResponseEntity.ok(Map.of(
+                "status", "unsubscribed",
+                "line", line.toUpperCase(),
+                "phone", phone
+        ));
+    }
+
+    // =============== 4) list all subscriptions (for debugging) ===============
+    @GetMapping("/subscriptions")
+    public ResponseEntity<?> listSubscriptions() {
+        return ResponseEntity.ok(whatsappService.getAllSubscriptions());
     }
 }

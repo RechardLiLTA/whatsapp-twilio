@@ -13,14 +13,20 @@ import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 
 
 @Service
 public class WhatsappService {
 
+    //in-memory subscriber list (for future use)
+    private final Map<String, Set<String>> subscribersByLine = new ConcurrentHashMap<>();
+    
     // 🆕 1) recipient map
     // fill in your real numbers here
     private static final Map<String, List<String>> LINE_RECIPIENTS = Map.of(
@@ -108,6 +114,45 @@ public class WhatsappService {
                 }
         };
     }
+
+    // subscribe a phone to a line
+    public void subscribe(String line, String phone) {
+        String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
+        // make sure it is in whatsapp: format
+        String normPhone = phone.startsWith("whatsapp:") ? phone : "whatsapp:" + phone;
+
+        subscribersByLine
+                .computeIfAbsent(normLine, k -> Collections.synchronizedSet(new HashSet<>()))
+                .add(normPhone);
+    }
+
+    // unsubscribe a phone from a line
+    public void unsubscribe(String line, String phone) {
+        String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
+        String normPhone = phone.startsWith("whatsapp:") ? phone : "whatsapp:" + phone;
+
+        Set<String> set = subscribersByLine.get(normLine);
+        if (set != null) {
+            set.remove(normPhone);
+        }
+    }
+
+    // get all subscribers for one line (for sending alerts)
+    public List<String> getSubscribersForLine(String line) {
+        String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
+        Set<String> set = subscribersByLine.get(normLine);
+        if (set == null || set.isEmpty()) {
+            // optional: fallback to GENERAL (or return empty list)
+            set = subscribersByLine.getOrDefault("GENERAL", Set.of());
+        }
+        return new ArrayList<>(set);
+    }
+
+    // for debugging / admin
+    public Map<String, Set<String>> getAllSubscriptions() {
+        return subscribersByLine;
+    }
+
 
     private String basicAuth(String user, String pass) {
         String s = user + ":" + pass;
