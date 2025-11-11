@@ -153,6 +153,27 @@ public class WhatsappService {
         return subscribersByLine;
     }
 
+    public int broadcast(String line, String message) {
+        // get map: line -> Set<numbers>
+        Map<String, Set<String>> all = getAllSubscriptions();
+
+        Set<String> targets;
+        if ("GENERAL".equalsIgnoreCase(line)) {
+            // send to everyone in all lines
+            targets = all.values().stream()
+                    .collect(java.util.stream.Collectors.toSet());
+        } else {
+            targets = all.getOrDefault(line.toUpperCase(), Set.of());
+        }
+
+        int count = 0;
+        for (String to : targets) {
+            // IMPORTANT: by now, to must look like "whatsapp:+65..."
+            sendWhatsAppMessage(to, message);
+            count++;
+        }
+        return count;
+    }
 
     private String basicAuth(String user, String pass) {
         String s = user + ":" + pass;

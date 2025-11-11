@@ -22,7 +22,7 @@ public class WhatsappController {
         this.whatsappService = whatsappService;
     }
 
-    // =============== 1) send alert ===============
+    // =============== 1) send alert (auto-detect line) ===============
     @PostMapping("/alerts/simple")
     public ResponseEntity<?> sendSimpleAlert(@RequestBody Map<String, Object> payload) {
         try {
@@ -54,10 +54,8 @@ public class WhatsappController {
             // choose recipients
             List<String> recipients;
             if (test) {
-                // test mode: only send to you
                 recipients = List.of("whatsapp:+6584685816"); // your own test number
             } else {
-                // REAL mode: pull from in-memory subscriptions
                 recipients = whatsappService.getSubscribersForLine(line);
             }
 
@@ -144,5 +142,72 @@ public class WhatsappController {
     @GetMapping("/subscriptions")
     public ResponseEntity<?> listSubscriptions() {
         return ResponseEntity.ok(whatsappService.getAllSubscriptions());
+    }
+
+    // =============== 5) NEW: force a line ===============
+    @PostMapping("/alerts/line/{line}")
+    public ResponseEntity<?> sendToSpecificLine(
+            @PathVariable("line") String line,
+            @RequestBody Map<String, Object> payload
+    ) {
+        try {
+            String message = (String) payload.getOrDefault("message", "");
+            if (message == null || message.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "message is required"));
+            }
+
+            // keep your existing test mechanism
+            boolean test = false;
+            Object testVal = payload.get("test");
+            if (testVal instanceof Boolean b) {
+                test = b;
+            }
+
+            String lineUpper = line.toUpperCase();
+
+            List<String> recipients;
+            if (test) {
+                recipients = List.of("whatsapp:+6584685816");
+            } else {
+                recipients = whatsappService.getSubscribersForLine(lineUpper);
+            }
+
+            if (recipients == null || recipients.isEmpty()) {
+                return ResponseEntity.status(404).body(Map.of(
+                        "error", "No recipients/subscribers configured for line " + lineUpper
+                ));
+            }
+
+            String formatted = "🚇 " + lineUpper + " Service Update\n" + message;
+
+            whatsappService.sendAlert(formatted, recipients);
+
+            log.info("[{}] SENT {} line={} recipients={} msg={}",
+                    OffsetDateTime.now(),
+                    (test ? "TEST" : "REAL"),
+                    lineUpper,
+                    recipients,
+                    message);
+
+            whatsappService.addAuditEntry(
+                    OffsetDateTime.now().toString(),
+                    lineUpper,
+                    message,
+                    recipients,
+                    test
+            );
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "sent",
+                    "line", lineUpper,
+                    "test", test,
+                    "recipients", recipients
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "status", "failed",
+                    "reason", e.getMessage()
+            ));
+        }
     }
 }
