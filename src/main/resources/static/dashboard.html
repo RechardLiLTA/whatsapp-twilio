@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Olive | WhatsApp Alert Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --olive-green: #6fae75;
+      --dark-olive: #4a7b52;
+      --light-bg: #f7f9f8;
+      --card-bg: #ffffff;
+      --border: #e0e0e0;
+      --text-dark: #333;
+      --text-muted: #666;
+    }
+
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background: var(--light-bg);
+      margin: 0;
+      padding: 0;
+      color: var(--text-dark);
+    }
+
+    header {
+      background: var(--olive-green);
+      color: white;
+      padding: 20px 40px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    header span {
+      font-weight: 400;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    main {
+      padding: 30px 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+
+    h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: var(--dark-olive);
+    }
+
+    textarea {
+      width: 100%;
+      height: 100px;
+      resize: vertical;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    input[type="checkbox"] {
+      transform: scale(1.1);
+      margin-right: 8px;
+    }
+
+    button {
+      padding: 10px 18px;
+      background: var(--olive-green);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 8px;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: var(--dark-olive);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background: var(--olive-green);
+      color: white;
+      font-weight: 500;
+    }
+
+    td {
+      vertical-align: top;
+      color: var(--text-muted);
+    }
+
+    .footer {
+      text-align: center;
+      padding: 15px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>MRT Announcement Portal <span>· WhatsApp Alerts</span></h1>
+    <span>🚇 LTA RDG 2025</span>
+  </header>
+
+  <main>
+    <div class="card">
+      <h2>Send Alert</h2>
+      <form id="alertForm">
+        <label>Message</label><br>
+        <textarea id="message" placeholder="Enter service update message..."></textarea><br>
+        <label><input type="checkbox" id="testMode"> Test Mode (send only to admin number)</label><br>
+        <button type="submit">Send Alert</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Active Subscriptions</h2>
+      <button id="refreshBtn">🔄 Refresh</button>
+      <table id="subsTable">
+        <thead>
+          <tr><th>Line</th><th>Subscribers</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div class="footer">© 2025 Land Transport Authority · Olive Digital Platform</div>
+
+  <script>
+    const apiBase = "http://localhost:8080/api/whatsapp";
+
+    async function sendAlert(event) {
+      event.preventDefault();
+      const msg = document.getElementById("message").value.trim();
+      const test = document.getElementById("testMode").checked;
+      if (!msg) return alert("⚠️ Please enter a message!");
+
+      const payload = { message: msg, test: test };
+      const res = await fetch(`${apiBase}/alerts/simple`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      alert("✅ " + JSON.stringify(data, null, 2));
+      document.getElementById("message").value = "";
+    }
+
+    async function loadSubs() {
+      const res = await fetch(`${apiBase}/subscriptions`);
+      const subs = await res.json();
+      const tbody = document.querySelector("#subsTable tbody");
+      tbody.innerHTML = "";
+      for (const [line, numbers] of Object.entries(subs)) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><b>${line}</b></td><td>${Array.from(numbers).join("<br>")}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    document.getElementById("alertForm").addEventListener("submit", sendAlert);
+    document.getElementById("refreshBtn").addEventListener("click", loadSubs);
+
+    // Load on page start
+    loadSubs();
+  </script>
+</body>
+</html>
