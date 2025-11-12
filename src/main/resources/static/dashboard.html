@@ -164,6 +164,18 @@
   <script>
     const apiBase = "http://localhost:8080/api/whatsapp";
 
+    const ADMIN_KEY = "richsauce"; // keep in .env later
+
+    fetch(`${apiBase}/alerts/simple`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-ADMIN-KEY": ADMIN_KEY,
+            ...(simulate ? {"X-SIMULATE": "true"} : {})
+        },
+        body: JSON.stringify(payload),
+    });
+
     async function sendAlert(event) {
       event.preventDefault();
       const msg = document.getElementById("message").value.trim();
