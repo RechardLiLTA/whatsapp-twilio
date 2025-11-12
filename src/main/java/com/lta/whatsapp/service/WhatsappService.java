@@ -2,6 +2,9 @@ package com.lta.whatsapp.service;
 
 import com.lta.whatsapp.model.WhatsappSubscription;
 import com.lta.whatsapp.repo.WhatsappSubscriptionRepository;
+import com.lta.whatsapp.model.WhatsappAudit;
+import com.lta.whatsapp.repo.WhatsappAuditRepository;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +34,7 @@ public class WhatsappService {
 
     // DB repo
     private final WhatsappSubscriptionRepository subscriptionRepository;
+    private final WhatsappAuditRepository auditRepo;   // ← add this
 
     // // keep your hardcoded recipients
     // private static final Map<String, List<String>> LINE_RECIPIENTS = Map.of(
@@ -53,9 +57,12 @@ public class WhatsappService {
     @Value("${twilio.from-number}")
     private String fromNumber;
 
-    public WhatsappService(WhatsappSubscriptionRepository subscriptionRepository) {
+    public WhatsappService(WhatsappSubscriptionRepository subscriptionRepository,
+                        WhatsappAuditRepository auditRepo) {
         this.subscriptionRepository = subscriptionRepository;
+        this.auditRepo = auditRepo;
     }
+
 
     /* =================== SUBSCRIBE =================== */
 
@@ -93,7 +100,7 @@ public class WhatsappService {
 
         System.out.println("[UNSUB→DB] " + normLine + " / " + normPhone);
     }
-    
+
     /* =================== READERS =================== */
 
     public List<String> getSubscribersForLine(String line) {
@@ -199,10 +206,19 @@ public class WhatsappService {
     /* =================== AUDIT =================== */
 
     public void addAuditEntry(String timestamp,
-                              String line,
-                              String message,
-                              List<String> recipients,
-                              boolean test) {
+                            String line,
+                            String message,
+                            List<String> recipients,
+                            boolean test) {
+        // 1) persist to DB (new)
+        auditRepo.save(new WhatsappAudit(
+                (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase(),
+                message,
+                recipients == null ? 0 : recipients.size(),
+                test
+        ));
+
+        // 2) keep the in-memory log (existing behaviour)
         auditLog.add(Map.of(
                 "timestamp", timestamp,
                 "line", line,
@@ -214,6 +230,7 @@ public class WhatsappService {
             auditLog.remove(0);
         }
     }
+
 
     public List<Map<String, Object>> getAuditLog() {
         return Collections.unmodifiableList(auditLog);
