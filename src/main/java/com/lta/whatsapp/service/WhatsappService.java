@@ -25,6 +25,10 @@ public class WhatsappService {
     // in-memory fallback
     private final Map<String, Set<String>> subscribersByLine = new ConcurrentHashMap<>();
 
+    private static final Set<String> VALID_LINES = Set.of(
+        "NSL", "EWL", "NEL", "CCL", "DTL", "TEL", "BPLRT", "SPLRT"
+    );
+
     // DB repo
     private final WhatsappSubscriptionRepository subscriptionRepository;
 
@@ -57,28 +61,32 @@ public class WhatsappService {
 
     @Transactional
     public void subscribe(String line, String phone) {
-        String normLine = normalizeLine(line);
-        String normPhone = normalizePhone(phone);
+        String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
 
-        // 1) DB (idempotent)
-        subscriptionRepository
-                .findByLineCodeAndPhone(normLine, normPhone)
-                .orElseGet(() -> subscriptionRepository.save(
-                        new WhatsappSubscription(normLine, normPhone)
-                ));
+        // ✅ Validate line input
+        if (!VALID_LINES.contains(normLine)) {
+            throw new IllegalArgumentException("Invalid line: " + normLine);
+        }
 
-        // 2) memory
+        // Normalise phone number
+        String normPhone = phone.startsWith("whatsapp:") ? phone : "whatsapp:" + phone;
+
         subscribersByLine
                 .computeIfAbsent(normLine, k -> Collections.synchronizedSet(new HashSet<>()))
                 .add(normPhone);
     }
 
+
     @Transactional
     public void unsubscribe(String line, String phone) {
-        String normLine = normalizeLine(line);
-        String normPhone = normalizePhone(phone);
+        String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
 
-        subscriptionRepository.deleteByLineCodeAndPhone(normLine, normPhone);
+        // ✅ Validate line input
+        if (!VALID_LINES.contains(normLine)) {
+            throw new IllegalArgumentException("Invalid line: " + normLine);
+        }
+
+        String normPhone = phone.startsWith("whatsapp:") ? phone : "whatsapp:" + phone;
 
         Set<String> set = subscribersByLine.get(normLine);
         if (set != null) {

@@ -55,7 +55,11 @@ public class TwilioWebhookController {
             }
             List<String> lines = parts.subList(1, parts.size());
             for (String line : lines) {
-                whatsappService.subscribe(line, senderFinal);
+                try{
+                    whatsappService.subscribe(line, senderFinal);
+                } catch (IllegalArgumentException e) {
+                    return twiml("❌ Invalid line name. Please use one of: NSL, EWL, NEL, CCL, DTL, TEL, BPLRT, SPLRT");
+                }
             }
             return twiml("✅ Subscribed you to: " + String.join(", ", lines));
         }
@@ -68,7 +72,11 @@ public class TwilioWebhookController {
             }
             List<String> lines = parts.subList(1, parts.size());
             for (String line : lines) {
-                whatsappService.unsubscribe(line, senderFinal);
+                try {
+                    whatsappService.unsubscribe(line, senderFinal);
+                } catch (IllegalArgumentException e) {
+                    return twiml("❌ Invalid line name. Please use one of: NSL, EWL, NEL, CCL, DTL, TEL, BPLRT, SPLRT");
+                }
             }
             return twiml("✅ Unsubscribed you from: " + String.join(", ", lines));
         }
