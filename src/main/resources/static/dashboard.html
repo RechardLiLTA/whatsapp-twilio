@@ -157,6 +157,18 @@
         <tbody></tbody>
       </table>
     </div>
+
+    <div class="card" style="grid-column: span 2;">
+      <h2>📜 Last 7 Days Logs</h2>
+      <button id="loadLogsBtn">🔄 Refresh</button>
+      <table id="auditTable">
+        <thead>
+          <tr><th>Time</th><th>Line</th><th>Recipients</th><th>Message</th><th>Mode</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
   </main>
 
   <div class="footer">© 2025 Land Transport Authority · Olive Digital Platform</div>
@@ -214,11 +226,35 @@
       }
     }
 
+    async function loadAudit() {
+      const res = await fetch(`${apiBase}/audit/last7d`, {
+        headers: {"X-ADMIN-KEY": ADMIN_KEY }
+      });
+      const logs = await res.json();
+      const tbody = document.querySelector("#auditTable tbody");
+      tbody.innerHTML = "";
+      for (const log of logs) {
+        const tr = document.createElement("tr");
+        const createdAt = new Date(log.createdAt).toLocaleString();
+        tr.innerHTML = `
+          <td>${createdAt}</td>
+          <td>${log.lineCode}</td>
+          <td>${log.recipientCount}</td>
+          <td>${log.message}</td>
+          <td>${log.testMode ? "Test" : "Live"}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+    document.getElementById("loadLogsBtn").addEventListener("click", loadAudit);
+
+
     document.getElementById("alertForm").addEventListener("submit", sendAlert);
     document.getElementById("refreshBtn").addEventListener("click", loadSubs);
 
     // Load on page start
     loadSubs();
+    loadAudit();
 </script>
 
 </body>

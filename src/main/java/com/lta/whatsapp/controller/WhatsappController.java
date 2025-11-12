@@ -1,11 +1,14 @@
 package com.lta.whatsapp.controller;
 
+import com.lta.whatsapp.model.WhatsappAudit;
 import com.lta.whatsapp.service.WhatsappService;
+import com.lta.whatsapp.repo.WhatsappAuditRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -17,9 +20,11 @@ public class WhatsappController {
     private static final Logger log = LoggerFactory.getLogger(WhatsappController.class);
 
     private final WhatsappService whatsappService;
+    private final WhatsappAuditRepository auditRepo;
 
-    public WhatsappController(WhatsappService whatsappService) {
+    public WhatsappController(WhatsappService whatsappService, WhatsappAuditRepository auditRepo) {
         this.whatsappService = whatsappService;
+        this.auditRepo = auditRepo;
     }
 
     // =============== 1) send alert (auto-detect line) ===============
@@ -210,4 +215,13 @@ public class WhatsappController {
             ));
         }
     }
+
+    // =============== 6) NEW: get audit logs for last 7 days ===============
+    @GetMapping("/audit/last7d")
+    public ResponseEntity<?> getLast7DaysAudit() {
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
+        List<WhatsappAudit> logs = auditRepo.findByCreatedAtAfterOrderByCreatedAtDesc(sevenDaysAgo);
+        return ResponseEntity.ok(logs);
+    }
+
 }
