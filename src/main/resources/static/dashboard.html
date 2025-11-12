@@ -163,18 +163,7 @@
 
   <script>
     const apiBase = "http://localhost:8080/api/whatsapp";
-
-    const ADMIN_KEY = "richsauce"; // keep in .env later
-
-    fetch(`${apiBase}/alerts/simple`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-ADMIN-KEY": ADMIN_KEY,
-            ...(simulate ? {"X-SIMULATE": "true"} : {})
-        },
-        body: JSON.stringify(payload),
-    });
+    const ADMIN_KEY = "richsauce"; // local-only; do NOT ship this in production
 
     async function sendAlert(event) {
       event.preventDefault();
@@ -182,19 +171,39 @@
       const test = document.getElementById("testMode").checked;
       if (!msg) return alert("⚠️ Please enter a message!");
 
-      const payload = { message: msg, test: test };
+      const payload = { message: msg, test };
       const res = await fetch(`${apiBase}/alerts/simple`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-ADMIN-KEY": ADMIN_KEY
+        },
         body: JSON.stringify(payload),
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        alert(`❌ Send failed (${res.status}): ${text}`);
+        return;
+      }
+
       const data = await res.json();
       alert("✅ " + JSON.stringify(data, null, 2));
       document.getElementById("message").value = "";
     }
 
     async function loadSubs() {
-      const res = await fetch(`${apiBase}/subscriptions`);
+      const res = await fetch(`${apiBase}/subscriptions`, {
+        headers: { "X-ADMIN-KEY": ADMIN_KEY }
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Failed to load subscriptions", res.status, text);
+        alert(`❌ Load failed (${res.status}): ${text}`);
+        return;
+      }
+
       const subs = await res.json();
       const tbody = document.querySelector("#subsTable tbody");
       tbody.innerHTML = "";
@@ -210,6 +219,7 @@
 
     // Load on page start
     loadSubs();
-  </script>
+</script>
+
 </body>
 </html>

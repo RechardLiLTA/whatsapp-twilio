@@ -62,38 +62,38 @@ public class WhatsappService {
     @Transactional
     public void subscribe(String line, String phone) {
         String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
+        if (!VALID_LINES.contains(normLine)) throw new IllegalArgumentException("Invalid line: " + normLine);
 
-        // ✅ Validate line input
-        if (!VALID_LINES.contains(normLine)) {
-            throw new IllegalArgumentException("Invalid line: " + normLine);
-        }
+        String normPhone = normalizePhone(phone);
 
-        // Normalise phone number
-        String normPhone = phone.startsWith("whatsapp:") ? phone : "whatsapp:" + phone;
+        // ✅ DB idempotent upsert
+        subscriptionRepository.findByLineCodeAndPhone(normLine, normPhone)
+            .orElseGet(() -> subscriptionRepository.save(new WhatsappSubscription(normLine, normPhone)));
 
-        subscribersByLine
-                .computeIfAbsent(normLine, k -> Collections.synchronizedSet(new HashSet<>()))
-                .add(normPhone);
+        // keep in-memory cache in sync (optional)
+        subscribersByLine.computeIfAbsent(normLine, k -> Collections.synchronizedSet(new HashSet<>())).add(normPhone);
+
+        System.out.println("[SUB→DB] " + normLine + " / " + normPhone);
     }
 
 
     @Transactional
     public void unsubscribe(String line, String phone) {
         String normLine = (line == null || line.isBlank()) ? "GENERAL" : line.toUpperCase();
+        if (!VALID_LINES.contains(normLine)) throw new IllegalArgumentException("Invalid line: " + normLine);
 
-        // ✅ Validate line input
-        if (!VALID_LINES.contains(normLine)) {
-            throw new IllegalArgumentException("Invalid line: " + normLine);
-        }
+        String normPhone = normalizePhone(phone);
 
-        String normPhone = phone.startsWith("whatsapp:") ? phone : "whatsapp:" + phone;
+        // ✅ DB delete (idempotent)
+        subscriptionRepository.deleteByLineCodeAndPhone(normLine, normPhone);
 
+        // update cache
         Set<String> set = subscribersByLine.get(normLine);
-        if (set != null) {
-            set.remove(normPhone);
-        }
-    }
+        if (set != null) set.remove(normPhone);
 
+        System.out.println("[UNSUB→DB] " + normLine + " / " + normPhone);
+    }
+    
     /* =================== READERS =================== */
 
     public List<String> getSubscribersForLine(String line) {
