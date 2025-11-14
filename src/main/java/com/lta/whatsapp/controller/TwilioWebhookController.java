@@ -99,13 +99,19 @@ public class TwilioWebhookController {
 
         // fallback help
         return twiml("""
-                LTA Rail Alerts 👋
-                Commands:
-                SUB NEL
-                SUB EWL
-                SUB CCL
-                LINES
-                UNSUB NEL
+                Welcome to MRT Service Alerts:
+
+                You can:
+                
+                • Send *SUB LINE_CODE* to subscribe (e.g. SUB NEL, SUB CCL)
+
+                • Send *LINES* to list your subscriptions
+
+                • Send *UNSUB LINE_CODE* to unsubscribe
+
+                _LINE_CODEs_: NEL, NSL, EWL, CCL, DTL, TEL, BPLRT, SPLRT
+
+                Tip: Try *SUB NEL* to get started.
                 """);
     }
 
